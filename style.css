@@ -4,7 +4,7 @@ body {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    background-color: #ffffff; /* Light blue background for the entire page */
+    background-color: white; /* Light blue background for the entire page */
     color: #4a5568; /* Default text color */
     line-height: 1.6;
     scroll-behavior: smooth; /* Smooth scrolling for navigation */
@@ -42,7 +42,7 @@ h2::after {
     transform: translateX(-50%);
     width: 80px;
     height: 4px;
-    background-color: #90cdf4; /* Light blue underline */
+    background-color: white; /* Light blue underline */
     border-radius: 2px;
 }
 
