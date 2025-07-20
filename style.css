@@ -4,8 +4,8 @@ body {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    background-color: #e0f2fe; /* Light blue background for the entire page */
-    color: #ffffff; /* Default text color */
+    background-color: #ffffff; /* Light blue background for the entire page */
+    color: #4a5568; /* Default text color */
     line-height: 1.6;
     scroll-behavior: smooth; /* Smooth scrolling for navigation */
 }
