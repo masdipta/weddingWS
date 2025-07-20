@@ -89,7 +89,7 @@ async function loadGuestbookMessages() {
     errorMessage.style.display = 'none';
 
     // URL WEB APP GOOGLE APPS SCRIPT UNTUK MEMBACA PESAN (URL yang Anda berikan)
-    const GOOGLE_APP_SCRIPT_MESSAGES_URL = 'https://script.google.com/macros/s/AKfycbxhGCK1XOU-e2-JkEo22BPcHXWHdFUWgKq5Yt8qkd1GuRWPcI7dBXg_k6G9WyTElfb0/exec'; // URL GuestbookReader terbaru Anda
+    const GOOGLE_APP_SCRIPT_MESSAGES_URL = 'https://script.google.com/macros/s/AKfycbxHQ2CCIV-HK1dNgW0vjmCVR-MFlY7mRD-f8wKkGBPNrh4fOa0RjG_TBCcREd4Czvsn/exec'; // URL GuestbookReader terbaru Anda
 
     console.log('Mencoba memuat pesan dari:', GOOGLE_APP_SCRIPT_MESSAGES_URL); // Debugging log
 
