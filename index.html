@@ -1,173 +1,976 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Undangan Pernikahan Sasa & Willy</title>
-    <!-- Link Google Font: Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <!-- Tailwind CSS CDN (for utility classes, though custom CSS is primary) -->
+    <title>Now Streaming: Our Love Story</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Link ke file CSS eksternal -->
-    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts - Inter for body, Playfair Display for headings -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables for Firebase (provided by Canvas environment)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let app, db, auth, userId;
+
+        // Initialize Firebase and authenticate
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Sign in with custom token or anonymously
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        console.log("Firebase initialized. User ID:", userId);
+                        document.getElementById('userIdDisplay').textContent = `User ID: ${userId}`;
+                        // Load messages after authentication
+                        loadMessages();
+                    } else {
+                        userId = crypto.randomUUID(); // Fallback for unauthenticated users
+                        console.log("Signed in anonymously. User ID:", userId);
+                        document.getElementById('userIdDisplay').textContent = `User ID: ${userId}`;
+                        loadMessages();
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+                // Display a user-friendly message if Firebase fails to initialize
+                document.getElementById('rsvpMessage').textContent = "Error loading application. Please try again later.";
+                document.getElementById('rsvpMessage').classList.remove('hidden');
+                document.getElementById('rsvpMessage').classList.add('text-red-600');
+            }
+        });
+
+        // Function to load and display messages from Firestore
+        function loadMessages() {
+            if (!db) {
+                console.error("Firestore not initialized.");
+                return;
+            }
+
+            // Public collection for messages
+            const messagesCollectionRef = collection(db, `artifacts/${appId}/public/data/wedding_messages`);
+            // Note: orderBy is commented out to avoid potential index issues as per instructions.
+            // Data will be sorted in JavaScript after fetching.
+            const q = query(messagesCollectionRef); // , orderBy("timestamp", "desc")
+
+            onSnapshot(q, (snapshot) => {
+                const messagesContainer = document.getElementById('fanReviewsList');
+                messagesContainer.innerHTML = ''; // Clear existing messages
+
+                const messages = [];
+                snapshot.forEach((doc) => {
+                    messages.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Sort messages by timestamp in descending order (latest first)
+                messages.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
+
+                if (messages.length === 0) {
+                    messagesContainer.innerHTML = '<p class="text-center text-gray-500 italic">No reviews yet. Be the first!</p>';
+                } else {
+                    messages.forEach(msg => {
+                        const messageElement = document.createElement('div');
+                        // Use bg-gray-100 for a slightly darker background for individual reviews in light theme
+                        messageElement.className = 'bg-gray-100 p-4 rounded-lg mb-3 shadow-inner border border-gray-200';
+                        messageElement.innerHTML = `
+                            <p class="font-semibold text-blue-600">${msg.name || 'Anonymous Fan'}</p>
+                            <p class="text-gray-700 mt-1">${msg.message}</p>
+                            <p class="text-xs text-gray-500 mt-2">${msg.timestamp ? new Date(msg.timestamp.toDate()).toLocaleString() : 'Just now'}</p>
+                        `;
+                        messagesContainer.appendChild(messageElement);
+                    });
+                }
+            }, (error) => {
+                console.error("Error fetching messages:", error);
+                document.getElementById('fanReviewsList').innerHTML = '<p class="text-center text-red-400">Failed to load reviews.</p>';
+            });
+        }
+
+        // Expose addDoc, collection, serverTimestamp to global scope for form handlers
+        window.addDoc = addDoc;
+        window.collection = collection;
+        window.db = () => db; // Getter for db
+        window.serverTimestamp = serverTimestamp;
+        window.appId = appId; // Expose appId
+    </script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FFFFFF; /* White background */
+            color: #333333; /* Dark text for contrast */
+            overflow-x: hidden; /* Prevent horizontal scroll due to animations */
+        }
+        h1, h2, h3 {
+            font-family: 'Playfair Display', serif;
+            color: #4A6078; /* Calm dark blue for titles */
+        }
+        .hero-section {
+            background-image: url('https://images.pexels.com/photos/2253842/pexels-photo-2253842.jpeg'); /* Updated hero background image */
+            background-size: cover;
+            background-position: center;
+            color: #333333; /* Dark text on hero */
+            text-shadow: 1px 1px 3px rgba(255,255,255,0.5); /* Lighter text shadow */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 100;
+            transition: transform 1s ease-out, opacity 1s ease-out;
+            overflow: hidden;
+        }
+        .hero-section.hidden-hero {
+            transform: translateY(-100vh);
+            opacity: 0;
+            pointer-events: none;
+        }
+        .hero-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.7) 100%); /* Lighter gradient overlay */
+            z-index: 1;
+        }
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            padding: 2rem;
+            max-width: 90%;
+        }
+        .card {
+            background-color: #F0F4F8; /* Light gray-blue for cards */
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            padding: 2.5rem;
+            margin-bottom: 2.5rem;
+            border: 1px solid #DDE5ED; /* Subtle light border */
+        }
+        .btn-primary {
+            background-color: #6A8EAE; /* Medium blue button */
+            color: white;
+            padding: 0.85rem 2rem;
+            border-radius: 0.75rem;
+            font-weight: 700;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .btn-primary:hover {
+            background-color: #4A6078; /* Darker blue on hover */
+            transform: translateY(-2px);
+        }
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            border: 1px solid #CCCCCC; /* Light gray border */
+            background-color: #FFFFFF; /* White background */
+            color: #333333;
+            margin-bottom: 1rem;
+        }
+        .form-input::placeholder {
+            color: #888888;
+        }
+        .audio-player {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 1000;
+            background-color: rgba(255, 255, 255, 0.8); /* White semi-transparent */
+            padding: 0.75rem 1.25rem;
+            border-radius: 2rem;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border: 1px solid #DDE5ED;
+        }
+        .audio-player button {
+            background-color: #6A8EAE; /* Blue button */
+            color: white;
+            padding: 0.6rem;
+            border-radius: 50%;
+            transition: background-color 0.3s ease;
+        }
+        .audio-player button:hover {
+            background-color: #4A6078;
+        }
+        .countdown-item {
+            background-color: #F0F4F8; /* Light gray-blue background for countdown numbers */
+            color: #4A6078; /* Dark blue numbers */
+            border: 1px solid #DDE5ED;
+        }
+
+        /* Custom scrollbar for a cleaner look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #F0F4F8;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #6A8EAE;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4A6078;
+        }
+
+        /* Modal Styles */
+        .modal {
+            position: fixed;
+            z-index: 1001;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: #F0F4F8; /* Light background for modal */
+            padding: 2rem;
+            border-radius: 1.5rem;
+            width: 90%;
+            max-width: 700px; /* Wider for video */
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            position: relative;
+            border: 1px solid #DDE5ED;
+        }
+        .close-button {
+            color: #4A6078; /* Dark blue close button */
+            position: absolute;
+            top: 1rem;
+            right: 1.5rem;
+            font-size: 2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: #6A8EAE;
+        }
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+            height: 0;
+            overflow: hidden;
+            max-width: 100%;
+            background: #000;
+            border-radius: 0.75rem;
+        }
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+
+        /* Content container initially hidden */
+        #mainContentWrapper {
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 1s ease-out, visibility 1s ease-out;
+            margin-top: 100vh; /* Push content down initially */
+        }
+        #mainContentWrapper.visible-content {
+            opacity: 1;
+            visibility: visible;
+            margin-top: 0; /* Bring content up */
+        }
+
+        /* Gallery specific styles */
+        .gallery-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 1.5rem;
+            /* Removed background and border to blend with body */
+            /* box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); */
+            /* background-color: #F0F4F8; */
+            /* border: 1px solid #DDE5ED; */
+            padding: 1rem; /* Add padding to container itself for spacing */
+        }
+        .gallery-slides {
+            display: flex;
+            transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1); /* Smoother transition */
+        }
+        .gallery-slide {
+            min-width: 100%;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0 0.5rem; /* Small padding between images */
+        }
+        .gallery-slide img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 1rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            object-fit: contain;
+            /* Removed background and border from image itself */
+        }
+        .gallery-nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(74, 96, 120, 0.7); /* Dark blue semi-transparent */
+            color: white;
+            border: none;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            font-size: 1.5rem;
+            border-radius: 0.75rem;
+            transition: background-color 0.3s ease;
+            z-index: 10;
+        }
+        .gallery-nav-btn:hover {
+            background-color: #4A6078; /* Darker blue */
+        }
+        .gallery-nav-btn.left {
+            left: 1rem;
+        }
+        .gallery-nav-btn.right {
+            right: 1rem;
+        }
+
+        /* Full Gallery Modal specific styles */
+        .full-gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            padding: 1rem;
+            max-height: 80vh; /* Limit height for scrollability */
+            overflow-y: auto; /* Enable scrolling */
+        }
+        .full-gallery-grid img {
+            width: 100%;
+            height: 150px; /* Fixed height for grid items */
+            object-fit: cover; /* Cover for grid items */
+            border-radius: 0.75rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        .full-gallery-grid img:hover {
+            transform: scale(1.03);
+        }
+
+        @media (max-width: 768px) {
+            .hero-section {
+                min-height: 70vh;
+            }
+            .hero-content h1 {
+                font-size: 3rem;
+            }
+            .hero-content p {
+                font-size: 1.2rem;
+            }
+            .card {
+                padding: 1.5rem;
+            }
+            .btn-primary {
+                padding: 0.6rem 1.2rem;
+            }
+            .countdown-item span:first-child {
+                font-size: 3rem;
+            }
+            .audio-player {
+                bottom: 1rem;
+                right: 1rem;
+                padding: 0.5rem 1rem;
+            }
+            .gallery-nav-btn {
+                padding: 0.5rem 0.75rem;
+                font-size: 1.2rem;
+            }
+            .full-gallery-grid {
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            }
+            .full-gallery-grid img {
+                height: 100px;
+            }
+        }
+    </style>
 </head>
-<body>
-    <!-- Hero Section -->
-    <section id="hero">
-        <h1>Sasa & Willy</h1>
-        <p>Dengan cinta kami mengundang Anda</p>
-        <p class="text-xl font-semibold">31 Mei 2026</p>
-        <a href="#countdown" class="scroll-down-button">Lihat Undangan</a>
-    </section>
+<body class="antialiased">
 
-    <!-- Countdown Section -->
-    <section id="countdown">
-        <h2>Hitung Mundur Menuju Hari Bahagia</h2>
-        <div id="countdown-timer">
-            <div class="days">00<span>Hari</span></div>
-            <div class="hours">00<span>Jam</span></div>
-            <div class="minutes">00<span>Menit</span></div>
-            <div class="seconds">00<span>Detik</span></div>
+    <!-- Hero Section - Netflix Poster Style (The "Envelope") -->
+    <section id="heroSection" class="hero-section" style="background-image: url('https://images.pexels.com/photos/2253842/pexels-photo-2253842.jpeg');">
+        <div class="hero-content">
+            <p class="text-2xl md:text-3xl mb-4 font-semibold text-gray-700">Netflix Originals Presents</p>
+            <h1 class="text-5xl md:text-7xl font-extrabold mb-6 uppercase tracking-wider text-4A6078">Now Streaming:<br>Sarah & John</h1>
+            <p class="text-xl md:text-2xl text-gray-600 italic mb-8">"A Binge-Worthy Love Story"</p>
+            <button id="openInvitationBtn" class="btn-primary animate-pulse">Watch Trailer (Open Invitation!)</button>
         </div>
     </section>
 
-    <!-- Couple Story Section -->
-    <section id="story">
-        <h2>Cerita Kami</h2>
-        <div class="story-content">
-            <img src="https://placehold.co/400x300/e0f2fe/2b6cb0?text=Foto+Cerita+1" alt="Cerita Kami 1" class="story-image">
-            <div class="story-text">
-                <h3 class="text-xl font-semibold text-blue-700 mb-2">Awal Pertemuan</h3>
-                <p>Kisah kami dimulai pada suatu sore yang tak terduga di sebuah kedai kopi kecil. Sasa, dengan senyum manisnya, dan Willy, dengan humornya yang khas, saling bertukar pandang. Sejak saat itu, kami tahu ada sesuatu yang istimewa.</p>
-            </div>
-        </div>
-        <div class="story-content mt-10">
-            <div class="story-text">
-                <h3 class="text-xl font-semibold text-blue-700 mb-2">Perjalanan Cinta</h3>
-                <p>Bertahun-tahun berlalu, kami melewati suka dan duka bersama. Setiap tantangan menguatkan ikatan kami, dan setiap momen bahagia menjadi kenangan tak terlupakan. Kami belajar, tumbuh, dan mencintai lebih dalam setiap harinya.</p>
-            </div>
-            <img src="https://placehold.co/400x300/e0f2fe/2b6cb0?text=Foto+Cerita+2" alt="Cerita Kami 2" class="story-image">
-        </div>
-        <p class="mt-10">Dan kini, kami siap melangkah ke babak baru dalam hidup kami, untuk selamanya.</p>
-    </section>
+    <!-- Main Content Wrapper (Initially Hidden) -->
+    <div id="mainContentWrapper">
+        <main class="container mx-auto px-4 py-12 md:py-20">
 
-    <!-- Gallery Section -->
-    <section id="gallery">
-        <h2>Momen Indah Kami</h2>
-        <div class="gallery-grid">
-            <div class="gallery-item"><img src="https://placehold.co/300x200/e0f2fe/2b6cb0?text=Foto+1" alt="Foto 1"></div>
-            <div class="gallery-item"><img src="https://placehold.co/300x200/e0f2fe/2b6cb0?text=Foto+2" alt="Foto 2"></div>
-            <div class="gallery-item"><img src="https://placehold.co/300x200/e0f2fe/2b6cb0?text=Foto+3" alt="Foto 3"></div>
-            <div class="gallery-item"><img src="https://placehold.co/300x200/e0f2fe/2b6cb0?text=Foto+4" alt="Foto 4"></div>
-            <div class="gallery-item"><img src="https://placehold.co/300x200/e0f2fe/2b6cb0?text=Foto+5" alt="Foto 5"></div>
-            <div class="gallery-item"><img src="https://placehold.co/300x200/e0f2fe/2b6cb0?text=Foto+6" alt="Foto 6"></div>
-        </div>
-    </section>
+            <!-- The Synopsis / Episode Guide -->
+            <section class="text-center mb-20">
+                <h2 class="text-4xl font-bold mb-6">The Series Premiere</h2>
+                <p class="text-gray-700 max-w-3xl mx-auto leading-relaxed text-lg">
+                    Get ready for the highly anticipated premiere of Sarah and John's epic journey into matrimony! This limited series event promises heartwarming moments, unexpected plot twists, and a grand finale you won't want to miss.
+                </p>
+            </section>
 
-    <!-- Events Section -->
-    <section id="events">
-        <h2>Detail Acara</h2>
-        <div class="event-card">
-            <h3>Pemberkatan / Akad Nikah</h3>
-            <p><strong>Tanggal:</strong> Sabtu, 31 Mei 2026</p>
-            <p><strong>Waktu:</strong> 10.00 WIB - Selesai</p>
-            <p><strong>Lokasi:</strong> Gereja/Masjid/Gedung Indah</p>
-            <p>Jl. Contoh No. 123, Kota Bahagia</p>
-            <a href="https://maps.app.goo.gl/CONTOH_LINK_GOOGLE_MAPS" target="_blank" class="location-link">Lihat di Google Maps</a>
-        </div>
-        <div class="event-card">
-            <h3>Resepsi Pernikahan</h3>
-            <p><strong>Tanggal:</strong> Sabtu, 31 Mei 2026</p>
-            <p><strong>Waktu:</strong> 19.00 WIB - Selesai</p>
-            <p><strong>Lokasi:</strong> Ballroom Impian</p>
-            <p>Jl. Impian Indah No. 456, Kota Bahagia</p>
-            <a href="https://maps.app.goo.gl/CONTOH_LINK_GOOGLE_MAPS_2" target="_blank" class="location-link">Lihat di Google Maps</a>
-        </div>
-        <div class="map-container">
-            <!-- Ganti dengan embed kode Google Maps lokasi acara utama Anda -->
-            <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3966.3687399999996!2d106.8271799!3d-6.2087639!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e69f417e2e8e9f5%3A0x8f7f7f7f7f7f7f7f!2sMonumen%20Nasional!5e0!3m2!1sen!2sid!4v1700000000000!5m2!1sen!2sid" allowfullscreen="" loading="lazy"></iframe>
-        </div>
-        <p class="mt-8 text-sm text-gray-600">Mohon perhatikan protokol kesehatan yang berlaku.</p>
-    </section>
+            <!-- The Lead Actors (Groom and Bride Details) -->
+            <section class="mb-20">
+                <h2 class="text-4xl font-bold text-center mb-10">Meet the Lead Actors</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <!-- Groom Details -->
+                    <div class="card text-center">
+                        <img src="https://placehold.co/300x300/E0E7EB/4A6078?text=John" alt="John - The Groom" class="rounded-full w-40 h-40 object-cover mx-auto mb-6 border-4 border-6A8EAE shadow-lg">
+                        <h3 class="text-3xl font-semibold mb-3">John Doe</h3>
+                        <p class="text-gray-600 mb-2">Son of Mr. Richard Doe & Mrs. Emily Doe</p>
+                        <p class="text-gray-500 text-sm italic">"The steady leading man, whose charm lights up every scene."</p>
+                    </div>
 
-    <!-- Gifts Section -->
-    <section id="gifts">
-        <h2>Kado Pernikahan</h2>
-        <p class="mb-6">Tanpa mengurangi rasa hormat, jika Anda berkenan memberikan tanda kasih, dapat melalui:</p>
-        <button id="openGiftModal" class="gift-button">Beri Kado</button>
-    </section>
-
-    <!-- RSVP Section -->
-    <section id="rsvp">
-        <h2>Konfirmasi Kehadiran Anda</h2>
-        <div class="container">
-            <form id="rsvpForm">
-                <!-- Nama Lengkap -->
-                <label for="namaLengkap">Nama Lengkap:</label>
-                <input type="text" id="namaLengkap" name="entry.882493965" placeholder="Masukkan nama lengkap Anda" required>
-
-                <!-- Hadir atau Tidak -->
-                <label>Apakah Anda akan Hadir?</label>
-                <div class="radio-group">
-                    <label>
-                        <input type="radio" name="entry.887368289" value="Ya" id="hadirYa" required>
-                        Ya, saya akan hadir
-                    </label>
-                    <label>
-                        <input type="radio" name="entry.887368289" value="Tidak" id="hadirTidak">
-                        Tidak, saya tidak bisa hadir
-                    </label>
+                    <!-- Bride Details -->
+                    <div class="card text-center">
+                        <img src="https://placehold.co/300x300/E0E7EB/4A6078?text=Sarah" alt="Sarah - The Bride" class="rounded-full w-40 h-40 object-cover mx-auto mb-6 border-4 border-6A8EAE shadow-lg">
+                        <h3 class="text-3xl font-semibold mb-3">Sarah Smith</h3>
+                        <p class="text-gray-600 mb-2">Daughter of Mr. Robert Smith & Mrs. Jane Smith</p>
+                        <p class="text-gray-500 text-sm italic">"The captivating heroine, with a smile that steals the show."</p>
+                    </div>
                 </div>
+            </section>
 
-                <!-- Jumlah Hadir (Tersembunyi Awalnya) -->
-                <div id="jumlahHadirContainer" class="hidden-field">
-                    <label for="jumlahHadir">Jumlah yang akan Hadir (termasuk Anda):</label>
-                    <select id="jumlahHadir" name="entry.830815033">
-                        <option value="">Pilih jumlah</option>
-                        <option value="1">1 orang</option>
-                        <option value="2">2 orang</option>
+            <!-- Countdown to Release -->
+            <section class="text-center mb-20">
+                <h2 class="text-4xl font-bold mb-10">Countdown to Release</h2>
+                <div id="countdown" class="flex justify-center items-center space-x-4 md:space-x-8 text-gray-700">
+                    <div class="flex flex-col items-center p-5 countdown-item rounded-xl shadow-lg">
+                        <span id="days" class="text-5xl md:text-6xl font-black">00</span>
+                        <span class="text-base md:text-lg mt-2 uppercase">Days</span>
+                    </div>
+                    <div class="flex flex-col items-center p-5 countdown-item rounded-xl shadow-lg">
+                        <span id="hours" class="text-5xl md:text-6xl font-black">00</span>
+                        <span class="text-base md:text-lg mt-2 uppercase">Hours</span>
+                    </div>
+                    <div class="flex flex-col items-center p-5 countdown-item rounded-xl shadow-lg">
+                        <span id="minutes" class="text-5xl md:text-6xl font-black">00</span>
+                        <span class="text-base md:text-lg mt-2 uppercase">Minutes</span>
+                    </div>
+                    <div class="flex flex-col items-center p-5 countdown-item rounded-xl shadow-lg">
+                        <span id="seconds" class="text-5xl md:text-6xl font-black">00</span>
+                        <span class="text-base md:text-lg mt-2 uppercase">Seconds</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Episode Guide & Viewing Locations -->
+            <section class="mb-20">
+                <h2 class="text-4xl font-bold text-center mb-10">Episode Guide & Viewing Locations</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <!-- Ceremony Card -->
+                    <div class="card text-center">
+                        <h3 class="text-3xl font-semibold mb-5">Episode 1: The Vows (Ceremony)</h3>
+                        <p class="text-gray-600 mb-3"><strong>Release Date:</strong> Saturday, 25 December 2025</p>
+                        <p class="text-gray-600 mb-3"><strong>Time Slot:</strong> 10:00 AM - 11:00 AM</p>
+                        <p class="text-gray-600 mb-6"><strong>Location:</strong> The Grand Studio, City Arts Center</p>
+                        <a href="https://maps.app.goo.gl/YOUR_GOOGLE_MAPS_LINK_CEREMONY" target="_blank" class="btn-primary inline-block">Find on Map</a>
+                    </div>
+
+                    <!-- Reception Card -->
+                    <div class="card text-center">
+                        <h3 class="text-3xl font-semibold mb-5">Episode 2: The Celebration (Reception)</h3>
+                        <p class="text-gray-600 mb-3"><strong>Release Date:</strong> Saturday, 25 December 2025</p>
+                        <p class="text-gray-600 mb-3"><strong>Time Slot:</strong> 01:00 PM - 05:00 PM</p>
+                        <p class="text-gray-600 mb-6"><strong>Location:</strong> The Main Stage, Downtown Hotel</p>
+                        <a href="https://maps.app.goo.gl/YOUR_GOOGLE_MAPS_LINK_RECEPTION" target="_blank" class="btn-primary inline-block">Find on Map</a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Behind the Scenes / Cast & Crew Profiles -->
+            <section class="mb-20 card">
+                <h2 class="text-4xl font-bold text-center mb-10">Behind the Scenes</h2>
+                <div class="flex flex-col md:flex-row items-center gap-10">
+                    <div class="md:w-1/2">
+                        <!-- Dummy photo for "Our Journey" -->
+                        <img src="https://placehold.co/600x400/E0E7EB/4A6078?text=Our+Journey+Together" alt="Our Story" class="rounded-xl shadow-lg w-full h-auto object-cover border border-gray-300">
+                    </div>
+                    <div class="md:w-1/2 text-gray-700 leading-relaxed text-lg">
+                        <p class="mb-5">
+                            Discover the making of Sarah and John's love story. From their first meet-cute to countless shared adventures, this bonus content reveals the magic behind their connection. Get ready for exclusive interviews and never-before-seen footage of their journey.
+                        </p>
+                        <p>
+                            Their bond, a captivating series of moments, has led them to this grand production. We invite you to stream live with us as they embark on their most exciting season yet.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Gallery Section -->
+            <section class="mb-20">
+                <h2 class="text-4xl font-bold text-center mb-10">The Photo Reel</h2>
+                <div class="gallery-container">
+                    <div id="gallerySlides" class="gallery-slides">
+                        <!-- Dummy Photos for Gallery (9-12 photos) -->
+                        <div class="gallery-slide"><img src="https://placehold.co/800x450/C0D0E0/4A6078?text=Scene+1" alt="Gallery Image 1"></div>
+                        <div class="gallery-slide"><img src="https://placehold.co/800x450/B0C0D0/4A6078?text=Scene+2" alt="Gallery Image 2"></div>
+                        <div class="gallery-slide"><img src="https://placehold.co/800x450/A0B0C0/4A6078?text=Scene+3" alt="Gallery Image 3"></div>
+                        <div class="gallery-slide"><img src="https://placehold.co/800x450/90A0B0/4A6078?text=Scene+4" alt="Gallery Image 4"></div>
+                        <div class="gallery-slide"><img src="https://placehold.co/800x450/8090A0/4A6078?text=Scene+5" alt="Gallery Image 5"></div>
+                        <div class="gallery-slide"><img src="https://placehold.co/800x450/708090/4A6078?text=Scene+6" alt="Gallery Image 6"></div>
+                        <div class="gallery-slide"><img src="https://placehold.co/800x450/607080/4A6078?text=Scene+7" alt="Gallery Image 7"></div>
+                        <div class="gallery-slide"><img src="https://placehold.co/800x450/506070/4A6078?text=Scene+8" alt="Gallery Image 8"></div>
+                        <div class="gallery-slide"><img src="https://placehold.co/800x450/405060/4A6078?text=Scene+9" alt="Gallery Image 9"></div>
+                    </div>
+                    <button id="prevGalleryBtn" class="gallery-nav-btn left">&#10094;</button>
+                    <button id="nextGalleryBtn" class="gallery-nav-btn right">&#10095;</button>
+                </div>
+                <div class="text-center mt-8">
+                    <button id="viewAllPhotosBtn" class="btn-primary">View All Photos</button>
+                </div>
+            </section>
+
+            <!-- Confirm Your Viewing / Add to My List -->
+            <section class="mb-20 card">
+                <h2 class="text-4xl font-bold text-center mb-10">Confirm Your Viewing</h2>
+                <p class="text-center text-gray-700 mb-8 text-lg">Add this event to your watchlist by December 1st, 2025, to ensure your access.</p>
+                <form id="rsvpForm" class="max-w-xl mx-auto">
+                    <input type="text" id="guestName" placeholder="Your Profile Name" class="form-input" required>
+                    <select id="attendance" class="form-input" required>
+                        <option value="">Will you be tuning in?</option>
+                        <option value="yes">Absolutely! Ready to Stream!</option>
+                        <option value="no">Regrettably, I'll catch it on demand.</option>
                     </select>
+                    <select id="attendeeCount" class="form-input" required>
+                        <option value="">How many attendees?</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                    </select>
+                    <textarea id="message" placeholder="A message for the cast (optional)..." rows="5" class="form-input"></textarea>
+                    <button type="submit" class="btn-primary w-full">Confirm Viewing</button>
+                    <div id="rsvpMessage" class="mt-6 text-center text-green-600 font-semibold hidden text-lg"></div>
+                </form>
+            </section>
+
+            <!-- Bonus Content / Production Credits -->
+            <section class="mb-20 card text-center">
+                <h2 class="text-4xl font-bold mb-10">Bonus Content</h2>
+                <p class="text-gray-700 max-w-3xl mx-auto leading-relaxed text-lg">
+                    Your presence is the ultimate fan appreciation. If you wish to support the ongoing production of our future, a digital contribution option will be available.
+                </p>
+                <p class="text-gray-700 mt-5 text-lg">
+                    <button id="showBankDetailsBtn" class="btn-primary">View Production Fund Details</button>
+                </p>
+            </section>
+
+            <!-- Fan Reviews / Leave Your Comments -->
+            <section class="mb-20 card">
+                <h2 class="text-4xl font-bold text-center mb-10">Fan Reviews</h2>
+                <p class="text-center text-gray-700 mb-8 text-lg">See what other fans are saying about the series!</p>
+                <div id="fanReviewsList" class="space-y-4">
+                    <!-- Messages will be loaded here by JavaScript -->
+                    <p class="text-center text-gray-500 italic">Loading reviews...</p>
                 </div>
+                <p class="text-center text-gray-700 mt-8 text-lg">Leave your own review below!</p>
+                <form id="guestbookForm" class="max-w-xl mx-auto mt-6">
+                    <input type="text" id="guestbookName" placeholder="Your Fan ID" class="form-input" required>
+                    <textarea id="guestbookMessage" placeholder="Write your review or well wishes here..." rows="7" class="form-input" required></textarea>
+                    <button type="submit" class="btn-primary w-full">Submit Review</button>
+                    <div id="guestbookConfirmation" class="mt-6 text-center text-green-600 font-semibold hidden text-lg"></div>
+                </form>
+            </section>
 
-                <!-- Pesan / Ucapan (Opsional) -->
-                <label for="pesanUcapan">Pesan / Ucapan (Opsional):</label>
-                <textarea id="pesanUcapan" name="entry.602733102" rows="4" placeholder="Tulis pesan atau ucapan untuk kami..."></textarea>
+        </main>
 
-                <button type="submit">Kirim</button>
-            </form>
-        </div>
-    </section>
+        <!-- Footer - End Credits -->
+        <footer class="bg-gray-100 text-gray-600 text-center py-10 rounded-t-3xl border-t border-gray-200">
+            <p class="text-lg">&copy; 2025 Sarah & John Streaming. All Rights Reserved.</p>
+            <p class="text-sm mt-3">Executive Producers: Love & Destiny.</p>
+            <div class="mt-5 text-sm">
+                <p>Starring: Sarah & John</p>
+                <p>Co-Starring: Our Incredible Audience</p>
+                <p>Special Thanks To: Our Production Crew (Family & Friends)</p>
+                <p id="userIdDisplay" class="text-xs mt-4"></p>
+            </div>
+        </footer>
+    </div> <!-- End of mainContentWrapper -->
 
-    <!-- Guestbook/Messages Section -->
-    <section id="messages">
-        <h2>Pesan & Ucapan dari Tamu</h2>
-        <p id="messages-loading">Memuat pesan...</p>
-        <p id="messages-error" style="display:none;">Gagal memuat pesan. Mohon coba lagi nanti.</p>
-        <div class="messages-container">
-            <!-- Messages will be loaded here by JavaScript -->
-        </div>
-    </section>
+    <!-- Soundtrack Player -->
+    <div class="audio-player">
+        <audio id="backgroundMusic" loop>
+            <!-- Replace with your own soft, cinematic audio file URL -->
+            <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mp3">
+            Your browser does not support the audio element.
+        </audio>
+        <button id="playPauseBtn" class="focus:outline-none">
+            <!-- Play Icon (SVG) -->
+            <svg id="playIcon" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+            <!-- Pause Icon (SVG) -->
+            <svg id="pauseIcon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+        </button>
+        <span class="text-base text-gray-600">Soundtrack</span>
+    </div>
 
-    <!-- Footer Section -->
-    <footer>
-        <p>&copy; 2025 Sasa & Willy. All Rights Reserved.</p>
-        <p>Dibuat dengan ❤️</p>
-    </footer>
-
-    <!-- Gift Modal -->
-    <div id="giftModal" class="modal-overlay">
+    <!-- Video Trailer Modal -->
+    <div id="videoModal" class="modal hidden">
         <div class="modal-content">
-            <span class="close-button-modal">&times;</span>
-            <h3>Informasi Rekening</h3>
-            <p><strong>Bank:</strong> BCA</p>
-            <p><strong>Atas Nama:</strong> Cornelia Diesa Florisavita</p>
-            <p><strong>Nomor Rekening:</strong> 8175328137</p>
-            <button id="copyAccountNumber" class="copy-button">Salin Nomor Rekening</button>
-            <span id="copyConfirmation" class="copy-confirmation"></span>
+            <span class="close-button" id="closeVideoModalBtn">&times;</span>
+            <div class="video-container">
+                <!-- YouTube embed URL -->
+                <iframe id="youtubePlayer" src="https://www.youtube.com/embed/Hif2fdPpvcc?autoplay=0&controls=1&showinfo=0&rel=0" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            </div>
         </div>
     </div>
 
-    <!-- Link ke file JavaScript eksternal -->
-    <script src="script.js" defer></script>
+    <!-- Bank Details Modal -->
+    <div id="bankDetailsModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-button" id="closeBankModalBtn">&times;</span>
+            <h3 class="text-3xl font-semibold mb-6 text-center text-4A6078">Production Fund Details</h3>
+            <div class="space-y-4 text-gray-700">
+                <div>
+                    <p class="font-bold">Bank Name:</p>
+                    <p id="bankName">Bank of Love & Destiny</p>
+                </div>
+                <div>
+                    <p class="font-bold">Account Name:</p>
+                    <p id="accountName">Sarah & John Wedding Fund</p>
+                </div>
+                <div>
+                    <p class="font-bold">Account Number:</p>
+                    <p id="accountNumber">1234 5678 9012 3456</p>
+                    <button id="copyAccountBtn" class="btn-primary mt-2 text-sm px-4 py-2">Copy Account Number</button>
+                </div>
+                <div>
+                    <p class="font-bold">Bank Code / Swift:</p>
+                    <p id="bankSwift">BLODIDXXXX</p>
+                </div>
+            </div>
+            <div id="copyConfirmation" class="mt-4 text-center text-green-600 font-semibold hidden">Copied to clipboard!</div>
+        </div>
+    </div>
+
+    <!-- Full Gallery Modal -->
+    <div id="fullGalleryModal" class="modal hidden">
+        <div class="modal-content max-w-4xl"> <!-- Make modal wider for gallery grid -->
+            <span class="close-button" id="closeFullGalleryModalBtn">&times;</span>
+            <h3 class="text-3xl font-semibold mb-6 text-center text-4A6078">The Complete Photo Reel</h3>
+            <div id="fullGalleryGrid" class="full-gallery-grid">
+                <!-- Images will be dynamically loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Countdown Timer Logic
+        const countdownDate = new Date("Dec 25, 2025 10:00:00").getTime();
+
+        const x = setInterval(function() {
+            const now = new Date().getTime();
+            const distance = countdownDate - now;
+
+            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+            document.getElementById("days").innerHTML = String(days).padStart(2, '0');
+            document.getElementById("hours").innerHTML = String(hours).padStart(2, '0');
+            document.getElementById("minutes").innerHTML = String(minutes).padStart(2, '0');
+            document.getElementById("seconds").innerHTML = String(seconds).padStart(2, '0');
+
+            if (distance < 0) {
+                clearInterval(x);
+                document.getElementById("countdown").innerHTML = "<p class='text-3xl font-bold text-4A6078'>Now Playing!</p>";
+            }
+        }, 1000);
+
+        // RSVP Form Handling (Client-side and Firestore)
+        document.getElementById('rsvpForm').addEventListener('submit', async function(event) {
+            event.preventDefault(); // Prevent actual form submission
+
+            const guestName = document.getElementById('guestName').value;
+            const attendance = document.getElementById('attendance').value;
+            const attendeeCount = document.getElementById('attendeeCount').value; // New attendee count
+            const message = document.getElementById('message').value;
+            const rsvpMessageDiv = document.getElementById('rsvpMessage');
+
+            if (guestName && attendance && attendeeCount) {
+                try {
+                    await window.addDoc(window.collection(window.db(), `artifacts/${window.appId}/public/data/wedding_messages`), {
+                        name: guestName,
+                        message: message || "No message provided.",
+                        attendance: attendance,
+                        attendeeCount: attendeeCount,
+                        timestamp: window.serverTimestamp(),
+                        type: 'rsvp_message'
+                    });
+
+                    let confirmationText = `Thank you, ${guestName}! Your viewing confirmation for ${attendance === 'yes' ? 'streaming live' : 'on demand'} for ${attendeeCount} guest(s) has been received.`;
+                    if (message) {
+                        confirmationText += " Your message has been added to Fan Reviews!";
+                    }
+                    rsvpMessageDiv.textContent = confirmationText;
+                    rsvpMessageDiv.classList.remove('hidden', 'text-red-600');
+                    rsvpMessageDiv.classList.add('text-green-600');
+                    this.reset();
+                } catch (e) {
+                    console.error("Error adding RSVP document: ", e);
+                    rsvpMessageDiv.textContent = "Error submitting RSVP. Please try again.";
+                    rsvpMessageDiv.classList.remove('hidden', 'text-green-600');
+                    rsvpMessageDiv.classList.add('text-red-600');
+                }
+            } else {
+                rsvpMessageDiv.textContent = "Please fill in all required fields to confirm your viewing.";
+                rsvpMessageDiv.classList.remove('hidden', 'text-green-600');
+                rsvpMessageDiv.classList.add('text-red-600');
+            }
+        });
+
+        // Guestbook Form Handling (Client-side and Firestore)
+        document.getElementById('guestbookForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const guestbookName = document.getElementById('guestbookName').value;
+            const guestbookMessage = document.getElementById('guestbookMessage').value;
+            const guestbookConfirmationDiv = document.getElementById('guestbookConfirmation');
+
+            if (guestbookName && guestbookMessage) {
+                try {
+                    await window.addDoc(window.collection(window.db(), `artifacts/${window.appId}/public/data/wedding_messages`), {
+                        name: guestbookName,
+                        message: guestbookMessage,
+                        timestamp: window.serverTimestamp(),
+                        type: 'guestbook_message'
+                    });
+
+                    guestbookConfirmationDiv.textContent = `Thank you, ${guestbookName}, for your fan review!`;
+                    guestbookConfirmationDiv.classList.remove('hidden', 'text-red-600');
+                    guestbookConfirmationDiv.classList.add('text-green-600');
+                    this.reset();
+                } catch (e) {
+                    console.error("Error adding guestbook document: ", e);
+                    guestbookConfirmationDiv.textContent = "Error submitting review. Please try again.";
+                    guestbookConfirmationDiv.classList.remove('hidden', 'text-green-600');
+                    guestbookConfirmationDiv.classList.add('text-red-600');
+                }
+            } else {
+                guestbookConfirmationDiv.textContent = "Please provide your fan ID and review to be featured.";
+                guestbookConfirmationDiv.classList.remove('hidden', 'text-green-600');
+                guestbookConfirmationDiv.classList.add('text-red-600');
+            }
+        });
+
+        // Audio Player Logic
+        const backgroundMusic = document.getElementById('backgroundMusic');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const playIcon = document.getElementById('playIcon');
+        const pauseIcon = document.getElementById('pauseIcon');
+
+        playPauseBtn.addEventListener('click', () => {
+            if (backgroundMusic.paused) {
+                backgroundMusic.play();
+                playIcon.classList.add('hidden');
+                pauseIcon.classList.remove('hidden');
+            } else {
+                backgroundMusic.pause();
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+            }
+        });
+
+        // Removed the initial autoplay music on user interaction.
+        // Music will now only start after the video modal is closed.
+
+
+        // Bank Details Modal Logic
+        const bankDetailsModal = document.getElementById('bankDetailsModal');
+        const showBankDetailsBtn = document.getElementById('showBankDetailsBtn');
+        const closeBankModalBtn = document.getElementById('closeBankModalBtn');
+        const copyAccountBtn = document.getElementById('copyAccountBtn');
+        const accountNumberSpan = document.getElementById('accountNumber');
+        const copyConfirmationDiv = document.getElementById('copyConfirmation');
+
+        showBankDetailsBtn.addEventListener('click', () => {
+            bankDetailsModal.classList.remove('hidden');
+            copyConfirmationDiv.classList.add('hidden');
+        });
+
+        closeBankModalBtn.addEventListener('click', () => {
+            bankDetailsModal.classList.add('hidden');
+        });
+
+        window.addEventListener('click', (event) => {
+            if (event.target === bankDetailsModal) {
+                bankDetailsModal.classList.add('hidden');
+            }
+        });
+
+        copyAccountBtn.addEventListener('click', () => {
+            const accountNumber = accountNumberSpan.textContent;
+            const tempInput = document.createElement('textarea');
+            tempInput.value = accountNumber;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            try {
+                document.execCommand('copy');
+                copyConfirmationDiv.textContent = 'Copied to clipboard!';
+                copyConfirmationDiv.classList.remove('hidden', 'text-red-600');
+                copyConfirmationDiv.classList.add('text-green-600');
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                copyConfirmationDiv.textContent = 'Failed to copy. Please copy manually.';
+                copyConfirmationDiv.classList.remove('hidden', 'text-green-600');
+                copyConfirmationDiv.classList.add('text-red-600');
+            }
+            document.body.removeChild(tempInput);
+        });
+
+        // Video Trailer Modal Logic
+        const videoModal = document.getElementById('videoModal');
+        const closeVideoModalBtn = document.getElementById('closeVideoModalBtn');
+        const youtubePlayer = document.getElementById('youtubePlayer');
+        const youtubePlayerSrc = youtubePlayer.src;
+
+        closeVideoModalBtn.addEventListener('click', () => {
+            videoModal.classList.add('hidden');
+            youtubePlayer.src = youtubePlayerSrc.split('?')[0];
+            youtubePlayer.src = youtubePlayerSrc;
+            // Play background music when video modal is closed
+            backgroundMusic.play().catch(e => console.log("Failed to play background music:", e));
+            playIcon.classList.add('hidden');
+            pauseIcon.classList.remove('hidden');
+        });
+
+        window.addEventListener('click', (event) => {
+            if (event.target === videoModal) {
+                videoModal.classList.add('hidden');
+                youtubePlayer.src = youtubePlayerSrc.split('?')[0];
+                youtubePlayer.src = youtubePlayerSrc;
+                // Play background music when video modal is closed by clicking outside
+                backgroundMusic.play().catch(e => console.log("Failed to play background music:", e));
+                playIcon.classList.add('hidden');
+                pauseIcon.classList.remove('hidden');
+            }
+        });
+
+        // "Opening Envelope" Logic
+        const heroSection = document.getElementById('heroSection');
+        const openInvitationBtn = document.getElementById('openInvitationBtn');
+        const mainContentWrapper = document.getElementById('mainContentWrapper');
+
+        openInvitationBtn.addEventListener('click', () => {
+            videoModal.classList.remove('hidden');
+            youtubePlayer.src = youtubePlayerSrc + '&autoplay=1';
+
+            setTimeout(() => {
+                heroSection.classList.add('hidden-hero');
+                mainContentWrapper.classList.add('visible-content');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 5000);
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            mainContentWrapper.classList.remove('visible-content');
+            heroSection.classList.remove('hidden-hero');
+        });
+
+        // Gallery Carousel Logic
+        let currentSlide = 0;
+        const gallerySlides = document.getElementById('gallerySlides');
+        const slides = document.querySelectorAll('.gallery-slide');
+        const totalSlides = slides.length;
+
+        function showGallerySlide(index) {
+            if (index >= totalSlides) {
+                currentSlide = 0;
+            } else if (index < 0) {
+                currentSlide = totalSlides - 1;
+            } else {
+                currentSlide = index;
+            }
+            gallerySlides.style.transform = `translateX(-${currentSlide * 100}%)`;
+        }
+
+        document.getElementById('nextGalleryBtn').addEventListener('click', () => {
+            showGallerySlide(currentSlide + 1);
+        });
+
+        document.getElementById('prevGalleryBtn').addEventListener('click', () => {
+            showGallerySlide(currentSlide - 1);
+        });
+
+        // Initialize gallery to show the first slide
+        showGallerySlide(currentSlide);
+
+        // Full Gallery Modal Logic
+        const fullGalleryModal = document.getElementById('fullGalleryModal');
+        const closeFullGalleryModalBtn = document.getElementById('closeFullGalleryModalBtn');
+        const viewAllPhotosBtn = document.getElementById('viewAllPhotosBtn');
+        const fullGalleryGrid = document.getElementById('fullGalleryGrid');
+
+        // Function to populate the full gallery modal
+        function populateFullGallery() {
+            fullGalleryGrid.innerHTML = ''; // Clear existing images
+            slides.forEach(slide => {
+                const img = slide.querySelector('img');
+                if (img) {
+                    const gridImg = document.createElement('img');
+                    gridImg.src = img.src;
+                    gridImg.alt = img.alt;
+                    fullGalleryGrid.appendChild(gridImg);
+                }
+            });
+        }
+
+        viewAllPhotosBtn.addEventListener('click', () => {
+            populateFullGallery(); // Populate before showing
+            fullGalleryModal.classList.remove('hidden');
+        });
+
+        closeFullGalleryModalBtn.addEventListener('click', () => {
+            fullGalleryModal.classList.add('hidden');
+        });
+
+        window.addEventListener('click', (event) => {
+            if (event.target === fullGalleryModal) {
+                fullGalleryModal.classList.add('hidden');
+            }
+        });
+
+    </script>
 </body>
 </html>
